@@ -1,4 +1,4 @@
-# babel-plugin-transform-unicode-regexp-runtime
+# babel-plugin-transform-unicode-regexp-runtime [![npm][npm-image]][npm-url]
 
 This replaces regexp literals and constructors that contain the unicode flag at compile time or at runtime if needed.
 
