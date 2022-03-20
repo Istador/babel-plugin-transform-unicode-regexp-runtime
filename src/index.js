@@ -1,26 +1,31 @@
-/**
- * Combines the following two babel plugins into one:
- * - @babel/plugin-transform-unicode-regex
- * - babel-plugin-transform-regexp-constructors
- *
- * And adds a runtime replacement of regular expressions.
- *
- * See https://github.com/babel/babel/issues/10523 for further details
- */
+/// Combines the following two babel plugins into one:
+/// - @babel/plugin-transform-unicode-regex
+/// - babel-plugin-transform-regexp-constructors
+///
+/// And adds a runtime replacement of regular expressions.
+///
+/// See https://github.com/babel/babel/issues/10523 for further details
+
 
 const rewritePattern = require('regexpu-core')
 const { addDefault } = require('@babel/helper-module-imports')
 
+const regexpuOptions = {
+  unicodeSetsFlag: 'transform',
+  unicodeFlag    : 'transform',
+}
+
 function convert(path, t) {
   const args = path.get('arguments')
   const evaluatedArgs = args.map((a) => a.evaluate())
-  if (! evaluatedArgs[1] || ! evaluatedArgs[1].value || ! evaluatedArgs[1].value.includes('u')) { return }
+  if (!evaluatedArgs[1] || !evaluatedArgs[1].value || !evaluatedArgs[1].value.includes('u'))
+    return
   let pattern = evaluatedArgs[0]
-  let flags   = evaluatedArgs[1].value
+  let flags = evaluatedArgs[1].value
 
   if (pattern.confident) {
     return t.regExpLiteral(
-      rewritePattern(pattern.value, flags),
+      rewritePattern(pattern.value, flags, regexpuOptions),
       flags.replace('u', ''),
     )
   }
@@ -32,7 +37,13 @@ function convert(path, t) {
         t.callExpression(
           rewritePatternIdentifier,
           [
-            pattern.deopt.node,
+            // TODO: investigate more details about `container`
+            pattern.deopt.container || pattern.deopt.node,
+            t.stringLiteral(flags),
+            t.objectExpression([
+              t.objectProperty(t.stringLiteral('unicodeSetsFlag'), t.stringLiteral('transform')),
+              t.objectProperty(t.stringLiteral('unicodeFlag'), t.stringLiteral('transform')),
+            ]),
           ],
         ),
         t.stringLiteral(flags.replace('u', '')),
@@ -42,20 +53,22 @@ function convert(path, t) {
 }
 
 function maybeReplaceRegExp(path, t) {
-  if (! t.isIdentifier(path.node.callee, { name: 'RegExp' })) { return }
+  if (!t.isIdentifier(path.node.callee, { name: 'RegExp' }))
+    return
   const regexp = convert(path, t)
   if (regexp) {
     path.replaceWith(regexp)
   }
 }
 
-module.exports = function({ types: t }) {
+module.exports = function ({ types: t }) {
   return {
     name: 'transform-unicode-regexp-runtime',
     visitor: {
       RegExpLiteral({ node }) {
-        if (! node.flags || ! node.flags.includes('u')) { return }
-        node.pattern = rewritePattern(node.pattern, node.flags)
+        if (!node.flags || !node.flags.includes('u'))
+          return
+        node.pattern = rewritePattern(node.pattern, node.flags, regexpuOptions)
         node.flags = node.flags.replace('u', '')
       },
       NewExpression(path) {
