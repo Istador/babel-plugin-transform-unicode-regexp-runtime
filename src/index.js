@@ -32,7 +32,7 @@ function convert(path, t) {
         t.callExpression(
           rewritePatternIdentifier,
           [
-            pattern.deopt.node,
+            path.node.arguments[0],
           ],
         ),
         t.stringLiteral(flags.replace('u', '')),
