@@ -11,6 +11,24 @@
 const rewritePattern = require('regexpu-core')
 const { addDefault } = require('@babel/helper-module-imports')
 
+const regexpuOptions = {
+  unicodeSetsFlag : 'transform',
+  unicodeFlag     : 'transform',
+}
+
+function babelfyOptions(t, options) {
+  return t.objectExpression(Object.keys(options).map(key =>
+    t.objectProperty(
+      t.stringLiteral(key),
+      (
+        typeof options[key] === 'boolean'
+        ? t.booleanLiteral(options[key])
+        : t.stringLiteral(options[key])
+      ),
+    )
+  ))
+}
+
 function convert(path, t) {
   const args = path.get('arguments')
   const evaluatedArgs = args.map((a) => a.evaluate())
@@ -20,7 +38,7 @@ function convert(path, t) {
 
   if (pattern.confident) {
     return t.regExpLiteral(
-      rewritePattern(pattern.value, flags),
+      rewritePattern(pattern.value, flags, regexpuOptions),
       flags.replace('u', ''),
     )
   }
@@ -33,6 +51,8 @@ function convert(path, t) {
           rewritePatternIdentifier,
           [
             path.node.arguments[0],
+            t.stringLiteral(flags),
+            babelfyOptions(t, regexpuOptions),
           ],
         ),
         t.stringLiteral(flags.replace('u', '')),
@@ -49,13 +69,13 @@ function maybeReplaceRegExp(path, t) {
   }
 }
 
-module.exports = function({ types: t }) {
+module.exports = function ({ types: t }) {
   return {
     name: 'transform-unicode-regexp-runtime',
     visitor: {
       RegExpLiteral({ node }) {
         if (! node.flags || ! node.flags.includes('u')) { return }
-        node.pattern = rewritePattern(node.pattern, node.flags)
+        node.pattern = rewritePattern(node.pattern, node.flags, regexpuOptions)
         node.flags = node.flags.replace('u', '')
       },
       NewExpression(path) {
