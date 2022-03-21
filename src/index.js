@@ -16,6 +16,19 @@ const regexpuOptions = {
   unicodeFlag     : 'transform',
 }
 
+function babelfyOptions(t, options) {
+  return t.objectExpression(Object.keys(options).map(key =>
+    t.objectProperty(
+      t.stringLiteral(key),
+      (
+        typeof options[key] === 'boolean'
+        ? t.booleanLiteral(options[key])
+        : t.stringLiteral(options[key])
+      ),
+    )
+  ))
+}
+
 function convert(path, t) {
   const args = path.get('arguments')
   const evaluatedArgs = args.map((a) => a.evaluate())
@@ -40,10 +53,7 @@ function convert(path, t) {
             // TODO: investigate more details about `container`
             pattern.deopt.container || pattern.deopt.node,
             t.stringLiteral(flags),
-            t.objectExpression([
-              t.objectProperty(t.stringLiteral('unicodeSetsFlag'), t.stringLiteral('transform')),
-              t.objectProperty(t.stringLiteral('unicodeFlag'), t.stringLiteral('transform')),
-            ]),
+            babelfyOptions(t, regexpuOptions),
           ],
         ),
         t.stringLiteral(flags.replace('u', '')),
