@@ -1,0 +1,36 @@
+name: Test
+
+on:
+  push:
+    branches: [ public ]
+  pull_request:
+    branches: [ public ]
+  workflow_dispatch: # or manual
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  test:
+    strategy:
+      matrix:
+        os   : [ ubuntu-latest, windows-latest, macos-latest ]
+        node : [ 12, 14, 16, 18 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Install Node ${{ matrix.node }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests
+      run: npm test
